@@ -27,3 +27,5 @@ if query:
   st.title(f"Résultats de la recherche pour '{query}' dans la catégorie '{category}' :")
   for result in results:
     st.markdown(f"- **{result['name']}**")
+    if 'image' in result:
+        st.image(result['image'])

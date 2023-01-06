@@ -65,6 +65,7 @@ def do_query(category, query):
 
 # Streamlit
 draw_background_image()
+st.image('https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Star_Wars_Logo..png/640px-Star_Wars_Logo..png')
 st.sidebar.title("Options de recherche")
 category = st.sidebar.selectbox("Choisissez une catégorie", ["people", "planets", "starships"])
 query = st.sidebar.text_input("Entrez votre recherche")

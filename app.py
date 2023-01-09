@@ -1,7 +1,8 @@
 import streamlit as st
 import requests
 import re
-CATEGORY = {"people": "characters", "planets": "planets", "starships": "starships"}
+import json
+CATEGORY = {"people": "characters", "planets": "planets", "starships": "starships", "films": "films", "vehicles": "vehicles", "species": "species"}
 
 # Recherche de l'id dans l'url
 
@@ -19,28 +20,6 @@ def draw_background_image():
     """,
     unsafe_allow_html=True)
 
-def slideshow(images):
-    # Generate a session state key based on images.
-    slide_collection_key = f"slideshow_{str(images).encode().hex()}"
-
-    # Initialize the default slideshow index.
-    if 'index' not in st.session_state:
-        st.session_state['index'] = 0
-
-    # Get the current slideshow index.
-    def _index_change_cb(value):
-        index = abs((st.session_state['index'] + value) % len(images))
-        st.session_state['index'] = index
-
-    index = st.session_state['index']
-    st.image(get_cached_image(slide_collection_key, index))
-    st.caption(f'{index}')
-
-    c1, c2, _c3 = st.columns([1,1,6])
-
-    c1.button('Previous', on_click=_index_change_cb, args=(-1,))
-    c2.button('Next', on_click=_index_change_cb, args=(1,))
-
 @st.cache
 def parse_url_id(url):
   item_id_match = re.search(r'/api/\w+/(\d+)/', url)
@@ -53,13 +32,20 @@ def parse_url_id(url):
 # Fonction pour réaliser une recherche avec l'API SWAPI
 @st.cache
 def search(category, query):
-  url = f"https://swapi.dev/api/{category}?search={query}"
-  response = requests.get(url)
-  results = response.json()['results']
-  return results
+    results = []
+    next = True
+    url = f"https://swapi.dev/api/{category}?search={query}"
+    while next:
+        response = requests.get(url)
+        data = json.loads(response.text)
+        results.extend(data['results'])
+        next = data['next'] is not None
+        if next:
+            url = data['next']
+    return results
 
 # Parcourir la liste de résultats et afficher les images
-def draw_results(results):
+def draw_results(results, key):
     st.empty()
     st.title(f"Résultats de la recherche pour '{query}' dans la catégorie '{category}' :")
     cols = [i for i in st.columns(len(results))]
@@ -70,22 +56,23 @@ def draw_results(results):
                 st.image(f"https://starwars-visualguide.com/assets/img/{CATEGORY[category]}/{id}.jpg")
             else:
                 st.image(f"https://starwars-visualguide.com/assets/img/placeholder.jpg")
-            st.write(f"- **{result['name']}**")
+            st.write(f"- **{result[key]}**")
 
 
 # Effectuer la requête
 def do_query(category, query):
   if query:
     results = search(category, query)
+    key = next(iter(results[0]))
     if len(results) == 0: st.markdown("# Pas de résultats pour votre recherche :disappointed_relieved:")
-    elif len(results) < 3: draw_results(results)
+    elif len(results) < 3: draw_results(results, key)
     else:
       results_per_page = st.sidebar.slider("Nombre de résultats par page", 1, len(results) // 2)
       total_pages = len(results) // results_per_page if len(results) > 0 else 1
       current_page = st.sidebar.selectbox("Page", [i for i in range(1, total_pages + 1)])
       start_index = (current_page - 1) * results_per_page
       end_index = start_index + results_per_page
-      draw_results(results[start_index:end_index])
+      draw_results(results[start_index:end_index], key)
 
 # Streamlit
 st.set_page_config(
@@ -100,6 +87,6 @@ draw_background_image()
 st.image('https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Star_Wars_Logo..png/640px-Star_Wars_Logo..png')
 st.audio("https://www.cjoint.com/doc/21_05/KEhhYBEVF5L_Star-Wars-Theme-Song-.mp3")
 st.sidebar.title("Options de recherche")
-category = st.sidebar.selectbox("Choisissez une catégorie", ["people", "planets", "starships"])
+category = st.sidebar.selectbox("Choisissez une catégorie", ["people", "planets", "starships", "films", "vehicles", "species"])
 query = st.sidebar.text_input("Entrez votre recherche")
 do_query(category, query)
